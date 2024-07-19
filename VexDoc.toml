@@ -1,0 +1,4 @@
+inline_comments = ""
+multi_comments = ['']
+ignored_dirs = ['deps', 'incremental', '.fingerprint']
+file_extensions = ['rs', 'timestamp']

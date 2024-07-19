@@ -1,0 +1,48 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #fff;
+    color: #000;
+}
+.container {
+    width: 80%;
+    margin: 0 auto;
+    padding: 20px;
+}
+h1, h2, h3 {
+    border-bottom: 1px solid #000;
+    padding-bottom: 10px;
+}
+pre {
+    background-color: #f4f4f4;
+    padding: 5px; /* Equal padding on all sides */
+    border: 1px solid #ccc;
+    overflow-x: auto;
+    font-family: "Courier New", Courier, monospace;
+    white-space: pre-wrap; /* Ensure long lines wrap */
+    word-wrap: break-word;  /* Ensure long lines break */
+    margin: 0; /* Remove margin */
+}
+code {
+    font-family: inherit;
+    font-size: 1em;
+    padding: inherit;
+}
+.comment {
+    font-style: italic;
+    color: #555;
+}
+@media print {
+    body {
+        background-color: #fff;
+        color: #000;
+    }
+    .container {
+        width: 100%;
+        padding: 0;
+    }
+    pre {
+        page-break-inside: avoid;
+    }
+}
