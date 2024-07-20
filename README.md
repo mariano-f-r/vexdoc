@@ -14,6 +14,9 @@ Download an appropriate executable, then simply move it onto $PATH
 ## Configuration
 
 VexDoc has a similar configuration to VexDocPy, with some minor differences:
+
+| Key | Value |
+|---------|--------|
 | `inline_comments` | This value is what VexDoc looks for when starting and reading the title of a documentation block, and ending a documentation block |
 | `multi_comments` | This value(s) are used by VexDoc to determine where the description for a documentation block starts and ends, as well as containing said description |
 | `ignored_dirs`   | These are directories that VexDoc ignores. They can be anywhere, including in the middle of the file tree. |
