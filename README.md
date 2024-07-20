@@ -63,8 +63,7 @@ Finally, create a multiline comment starting with "startsummary" (no space this 
 Within these 2 lines, you can write the actual documentation.
 `fizz.py` will now look like this:
 ```python
-# STARTVEXDOC
-# TITLE Documentation for the foo() function
+#! The Foo Function
 """startsummary
 The foo function prints Foo!
 endsummary"""
