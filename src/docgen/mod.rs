@@ -7,6 +7,9 @@ use std::io::{self, ErrorKind, Write};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+mod tests;
+
 // TODO: write some awful configs to ensure that error handling is decent
 #[derive(Debug, Deserialize)]
 pub struct DocGenConfig {
@@ -31,8 +34,6 @@ impl DocGenConfig {
                 file: "./VexDoc.toml".into(),
             })?;
 
-        dbg!(&config);
-
         let mut error = false;
         let mut solution = String::new();
 
@@ -54,7 +55,7 @@ impl DocGenConfig {
                 causes: solution,
                 source: None,
                 kind: UserErrorKind::Config,
-                file: "./VexDoc.toml".into(),
+                file: "VexDoc.toml".into(),
             });
         }
 
@@ -131,7 +132,7 @@ pub fn document(conf: DocGenConfig, files: Vec<PathBuf>) -> Result<(), Subcomman
         println!("Documenting {} ...", path.display());
         if !create_doc(path, &conf)? {
             notices.push(format!(
-                "NOTICE: {} contained no annotations, so it was not documented. Ensure it has correct annotations",
+                "NOTICE: {} contained no annotations, so nothing was actually written to its documentation. Ensure it has correct annotations",
                 path.display()
             ))
         }
@@ -197,7 +198,7 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
                     if single_multiline {
                         &conf.multi_comments[0]
                     } else {
-                        &conf.multi_comments[2]
+                        &conf.multi_comments[1]
                     }
                 )) {
                     body.add_html(
