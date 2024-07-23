@@ -67,10 +67,12 @@ fn rand_dir_entries(path: &Path) -> Vec<PathBuf> {
 #[test]
 fn random_get_all_files() -> Result<(), Box<dyn Error>> {
     let temporary_dir = TempDir::new()?;
-    let test_files = rand_dir_entries(temporary_dir.path());
+    let mut test_files = rand_dir_entries(temporary_dir.path());
 
-    let files = DocGenConfig::get_files_helper(temporary_dir.path().into(), &vec![])?;
+    let mut files = DocGenConfig::get_files_helper(temporary_dir.path().into(), &vec![])?;
 
+    test_files.sort();
+    files.sort();
     dbg!(&test_files);
     dbg!(&files);
 
