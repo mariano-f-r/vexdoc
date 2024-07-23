@@ -1,7 +1,7 @@
 use std::{env, error::Error};
 
 use super::*;
-use assert_fs::fixture::TempDir;
+use assert_fs::{fixture::TempDir, NamedTempFile};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 fn rand_dir_entries(path: &Path) -> Vec<PathBuf> {
@@ -80,8 +80,31 @@ fn random_get_all_files() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn reads_config() {
-    todo!();
+fn reads_config() -> Result<(), Box<dyn Error>> {
+    let tmp_config = NamedTempFile::new("VexDoc.toml")?;
+
+    // we know there will be a parent because of how NamedTempFile works
+    fs::write(
+        tmp_config.path(),
+        r#"inline_comments = "//"
+multi_comments = ["/*", "*/"]
+ignored_dirs = []
+file_extensions = ["c", "h"]
+"#,
+    )?;
+
+    env::set_current_dir(tmp_config.parent().unwrap())?;
+
+    let conf = DocGenConfig::read_config().expect("Should be able to read config");
+
+    assert!(
+        conf.inline_comments == "//".to_string()
+            && conf.multi_comments == vec!["/*".to_string(), "*/".to_string()]
+            && conf.ignored_dirs.len() == 0
+            && conf.file_extensions == vec!["c".to_string(), "h".to_string()]
+    );
+
+    Ok(())
 }
 
 #[test]
