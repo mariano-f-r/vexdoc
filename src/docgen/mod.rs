@@ -231,7 +231,7 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
                     if single_multiline {
                         &conf.multi_comments[0]
                     } else {
-                        &conf.multi_comments[2]
+                        &conf.multi_comments[1]
                     }
                 )) {
                     // TODO: figure out a better way to test syntax of the annotations
