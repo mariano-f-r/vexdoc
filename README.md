@@ -6,6 +6,15 @@ VexDoc is my second attempt at program that generates HTML documentation for cod
 This version is written in Rust for portability and performance, and also works more like a Unix-style command.
 Among other things, I took inspiration from commands like `git`, `cat`, `python3`, and `cargo`.
 
+## First Run
+
+To begin using VexDoc, first create a config file by running `vexdoc init`.
+This will create a config file in the current working directory called `VexDoc.toml`.
+
+Fill out this file using the configuration details found below.
+
+Then once you are done, you can document the file types marked in the config using `vexdoc generate`.
+
 ## Installation
 
 Executables should be available in the releases tab.
