@@ -273,7 +273,8 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
                     .display()
                     .to_string()
                     .replace(".", "-")
-                    .replace("/", "_"),
+                    .replace("/", "_")
+                    .replace("\\", "_"),
             )
             .with_extension("html"),
         doc_boilerplate_memo(&old_path)
