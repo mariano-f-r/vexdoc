@@ -31,6 +31,8 @@ VexDoc has a similar configuration to VexDocPy, with some minor differences:
 | `ignored_dirs`   | These are directories that VexDoc ignores. They can be anywhere, including in the middle of the file tree. |
 | `file_extensions` | These are the extensions of the files VexDoc will target, written without the leading dot: ie, "py", "rs", "h", etc |
 
+`ignored_dirs` and `file_extensions` are both case-sensitive.
+
 Here is a sample config:
 ```toml
 inline_comments = "//"
