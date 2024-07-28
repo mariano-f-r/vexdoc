@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::io;
 use std::process;
 
@@ -10,8 +9,6 @@ fn main() {
     // we only care about Err values because the actual results are all side effects
     if let Err(err) = run(args) {
         exit_code = 1;
-        dbg!(err.source());
-        dbg!(&err);
         match &err {
             SubcommandError::InitError(ref e) => match e.kind() {
                 io::ErrorKind::AlreadyExists => {
