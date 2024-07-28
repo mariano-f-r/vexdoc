@@ -32,7 +32,7 @@ jobs:
           files: |
             vexdoc
             vexdoc.exe
-      - if: ! endswith(${{ github.ref}}, "tags/v*-rc*")
+      - if: '!endswith(${{ github.ref}}, "tags/v*-rc*")'
         name: Release
         uses: softprops/action-gh-release@v2
         with:
