@@ -1,6 +1,6 @@
 # VexDoc
 
-(for real this time, no Py)
+(for real this time, no Python)
 
 VexDoc is my second attempt at program that generates HTML documentation for code based on annotations written inside the code.
 This version is written in Rust for portability and performance, and also works more like a Unix-style command.
