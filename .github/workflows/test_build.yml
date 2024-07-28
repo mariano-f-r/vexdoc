@@ -10,8 +10,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  
   build:
-
+    if: ${{ !startswith(github.ref_name), 'chore' }}
     runs-on: ubuntu-latest
 
     steps:
