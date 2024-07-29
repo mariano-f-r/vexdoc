@@ -18,7 +18,7 @@ Then once you are done, you can document the file types marked in the config usi
 ## Installation
 
 Executables should be available in the releases tab.
-Download an appropriate executable, then simply move it onto $PATH
+Download an appropriate executable, rename it to `vexdoc`, or `vexdoc.exe` depending on your platform, then simply move it onto $PATH
 
 ## Configuration
 
