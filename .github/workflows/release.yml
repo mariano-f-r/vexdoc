@@ -1,103 +1,95 @@
-name: Release
+name: Build and Release
 
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*.*.*' # Matches tags following semantic versioning (e.g., v1.0.0)
 
 jobs:
   build:
+    name: Build Project
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
+      - name: Set up Rust
+        run: rustup update stable
 
-    - name: Build
-      run: cargo build --release
+      - name: Build project
+        run: cargo build --release
 
-    - name: Archive Release Build (Windows)
-      if: ${{ matrix.os == 'windows-latest' }}
-      run: |
-        mkdir -p release
-        cp target/release/*.exe release/${{ matrix.os }}-x86_64-pc-windows-msvc.exe
+      - name: Rename release binary
+        run: |
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            mv target/release/my_project release-x86_64-unknown-linux-gnu
+          else
+            mv target/release/my_project.exe release-x86_64-pc-windows-msvc.exe
+        shell: bash
 
-    - name: Archive Release Build (Linux)
-      if: ${{ matrix.os == 'ubuntu-latest' }}
-      run: |
-        mkdir -p release
-        cp target/release/* release/${{ matrix.os }}-x86_64-unknown-linux-gnu
-
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: release-${{ matrix.os }}
-        path: release/
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os == 'ubuntu-latest' && 'x86_64-unknown-linux-gnu' || 'x86_64-pc-windows-msvc' }}
+          path: ${{ matrix.os == 'ubuntu-latest' && 'release-x86_64-unknown-linux-gnu' || 'release-x86_64-pc-windows-msvc.exe' }}
 
   release:
-    needs: build
+    name: Create GitHub Release
     runs-on: ubuntu-latest
+    needs: build
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Download build artifacts (Linux)
+        uses: actions/download-artifact@v4
+        with:
+          name: release-x86_64-unknown-linux-gnu
+          path: ./linux
+      - name: Download build artifacts (Windows)
+        uses: actions/download-artifact@v4
+        with:
+          name: release-x86_64-pc-windows-msvc
+          path: ./windows
 
-    - name: Download Linux Build
-      uses: actions/download-artifact@v3
-      with:
-        name: release-ubuntu-latest
-        path: release/
+      - name: Determine if pre-release
+        id: pre_release
+        run: |
+          if [[ "${GITHUB_REF}" =~ -rc[0-9]+$ ]]; then
+            echo "pre_release=true" >> $GITHUB_ENV
+          else
+            echo "pre_release=false" >> $GITHUB_ENV
+          fi
 
-    - name: Download Windows Build
-      uses: actions/download-artifact@v3
-      with:
-        name: release-windows-latest
-        path: release/
+      - name: Get release notes
+        id: get_release_notes
+        run: echo "::set-output name=notes::$(git tag -l --format='%(contents)' $GITHUB_REF)"
 
-    - name: Determine Prerelease
-      id: prerelease
-      run: |
-        if [[ $GITHUB_REF == *-rc* ]]; then
-          echo "prerelease=true" >> $GITHUB_ENV
-        else
-          echo "prerelease=false" >> $GITHUB_ENV
-        fi
+      - name: Create GitHub release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref }}
+          body: ${{ steps.get_release_notes.outputs.notes }}
+          draft: false
+          prerelease: ${{ env.pre_release == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: ${{ env.prerelease }}
+      - name: Upload Linux binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./linux/release-x86_64-unknown-linux-gnu
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload Linux Release Assets
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: release/ubuntu-latest-x86_64-unknown-linux-gnu
-        asset_name: ${{ github.ref }}-x86_64-unknown-linux-gnu
-        asset_content_type: application/octet-stream
+      - name: Upload Windows binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./windows/release-x86_64-pc-windows-msvc.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload Windows Release Assets
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: release/windows-latest-x86_64-pc-windows-msvc.exe
-        asset_name: ${{ github.ref }}-x86_64-pc-windows-msvc.exe
-        asset_content_type: application/octet-stream
