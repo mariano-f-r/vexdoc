@@ -2,44 +2,102 @@ name: Release
 
 on:
   push:
-    tags: "v*"
-
-permissions:
-  contents: write
+    tags:
+      - 'v*.*.*'
 
 jobs:
-  build_and_release:
+  build:
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
       matrix:
         os: [ubuntu-latest, windows-latest]
 
-    runs-on: ${{ matrix.os }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build
-        run: cargo build --release
-      - name: Move binaries linux
-        run: mv target/release/vexdoc .
-        if: ${{ matrix.os }} == "ubuntu-*"
-      - name: Move binaries windows
-        run: move target\\release\\vexdoc.exe .
-        if: ${{ matrix.os }} == "windows-*"
-      - if: endswith(${{ github.ref}}, "tags/v*-rc*")
-        name: prerelease
-        uses: softprops/action-gh-release@v2
-        with:
-          prerelease: true
-          files: |
-            vexdoc
-            vexdoc.exe
-      - if: '!endswith(${{ github.ref}}, "tags/v*-rc*")'
-        name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          prerelease: false
-          files: |
-            vexdoc
-            vexdoc.exe
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: Build
+      run: cargo build --release
+
+    - name: Archive Release Build (Windows)
+      if: ${{ matrix.os == 'windows-latest' }}
+      run: |
+        mkdir -p release
+        cp target/release/*.exe release/${{ matrix.os }}-x86_64-pc-windows-msvc.exe
+
+    - name: Archive Release Build (Linux)
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      run: |
+        mkdir -p release
+        cp target/release/* release/${{ matrix.os }}-x86_64-unknown-linux-gnu
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-${{ matrix.os }}
+        path: release/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Download Linux Build
+      uses: actions/download-artifact@v3
+      with:
+        name: release-ubuntu-latest
+        path: release/
+
+    - name: Download Windows Build
+      uses: actions/download-artifact@v3
+      with:
+        name: release-windows-latest
+        path: release/
+
+    - name: Determine Prerelease
+      id: prerelease
+      run: |
+        if [[ $GITHUB_REF == *-rc* ]]; then
+          echo "prerelease=true" >> $GITHUB_ENV
+        else
+          echo "prerelease=false" >> $GITHUB_ENV
+        fi
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: ${{ env.prerelease }}
+
+    - name: Upload Linux Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: release/ubuntu-latest-x86_64-unknown-linux-gnu
+        asset_name: ${{ github.ref }}-x86_64-unknown-linux-gnu
+        asset_content_type: application/octet-stream
+
+    - name: Upload Windows Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: release/windows-latest-x86_64-pc-windows-msvc.exe
+        asset_name: ${{ github.ref }}-x86_64-pc-windows-msvc.exe
+        asset_content_type: application/octet-stream
