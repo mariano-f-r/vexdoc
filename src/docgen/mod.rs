@@ -150,7 +150,7 @@ multi_comments = []
 ignored_dirs = []
 file_extensions = []"#;
         dir.push("VexDoc.toml");
-        let mut file = File::create_new("./VexDoc.toml")?;
+        let mut file = File::create_new(&dir)?;
         file.write_all(content.as_bytes())?;
         Ok(())
     }
