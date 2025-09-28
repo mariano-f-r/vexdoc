@@ -1,20 +1,4 @@
-//! # Documentation Generation
-//! 
-//! This is where the magic happens. The docgen module takes your source files,
-//! finds the documentation blocks you've marked up, and turns them into
-//! clean HTML pages.
-//! 
-//! The process is pretty straightforward:
-//! 1. Read the configuration to know what file types and comment styles to look for
-//! 2. Walk through your project directory, skipping ignored folders
-//! 3. For each source file, parse it looking for our special comment markers
-//! 4. Extract the title, description, and code from each documentation block
-//! 5. Generate HTML with syntax highlighting and write it to the docs folder
-//! 
-//! The parser uses a simple state machine to track whether we're currently
-//! inside a documentation block, reading a title, or processing code. This
-//! keeps the logic clean and makes it easy to handle different comment styles
-//! across programming languages.
+//! Documentation generation module
 
 use crate::errors::{SubcommandError, UserErrorKind};
 use build_html::{Container, ContainerType, Html, HtmlContainer, HtmlElement, HtmlPage, HtmlTag};
@@ -30,38 +14,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 #[cfg(test)]
 mod tests;
 
-/// Configuration for how VexDoc should process your project
-/// 
-/// This struct holds all the settings that tell VexDoc what to look for
-/// and how to process your files. It's loaded from the VexDoc.toml file
-/// in your project root.
-/// 
-/// The configuration is pretty flexible - you can tell VexDoc to process
-/// any file type by setting the right comment delimiters and file extensions.
-/// This makes it work with everything from C++ to Python to JavaScript.
-/// 
-/// # Examples
-/// 
-/// ```rust
-/// use vexdoc::docgen::DocGenConfig;
-/// use std::path::PathBuf;
-/// 
-/// // Typical Rust project configuration
-/// let config = DocGenConfig {
-///     inline_comments: "//".to_string(),
-///     multi_comments: vec!["/*".to_string(), "*/".to_string()],
-///     ignored_dirs: vec![PathBuf::from("target"), PathBuf::from("node_modules")],
-///     file_extensions: vec!["rs".to_string()],
-/// };
-/// 
-/// // Python project would look like this:
-/// let python_config = DocGenConfig {
-///     inline_comments: "#".to_string(),
-///     multi_comments: vec!["\"\"\"".to_string(), "\"\"\"".to_string()],
-///     ignored_dirs: vec![PathBuf::from("__pycache__")],
-///     file_extensions: vec!["py".to_string()],
-/// };
-/// ```
+/// Configuration for VexDoc processing
 #[derive(Debug, Deserialize)]
 pub struct DocGenConfig {
     inline_comments: String,
@@ -71,40 +24,7 @@ pub struct DocGenConfig {
 }
 
 impl DocGenConfig {
-    /// Loads the configuration from VexDoc.toml
-    /// 
-    /// This function looks for a VexDoc.toml file in the current directory,
-    /// reads it, and makes sure all the required settings are present and
-    /// valid. If something's wrong, it gives you a helpful error message
-    /// explaining what needs to be fixed.
-    /// 
-    /// The validation is pretty thorough - it checks that you have comment
-    /// delimiters, file extensions, and that everything is formatted correctly.
-    /// No more mysterious failures because you forgot to set something!
-    /// 
-    /// # Returns
-    /// 
-    /// * `Ok(DocGenConfig)` - Configuration loaded successfully
-    /// * `Err(SubcommandError)` - Something went wrong (file missing, invalid format, etc.)
-    /// 
-    /// # Errors
-    /// 
-    /// Common issues this function catches:
-    /// - Missing VexDoc.toml file
-    /// - Invalid TOML syntax (missing quotes, brackets, etc.)
-    /// - Empty or missing required fields
-    /// - File extensions with leading dots (should be "rs" not ".rs")
-    /// - Incomplete multiline comment pairs
-    /// 
-    /// # Examples
-    /// 
-    /// ```no_run
-    /// use vexdoc::docgen::DocGenConfig;
-    /// 
-    /// // This will read VexDoc.toml from the current directory
-    /// let config = DocGenConfig::read_config()?;
-    /// println!("Found {} file types to process", config.file_extensions.len());
-    /// ```
+    /// Loads configuration from VexDoc.toml
     pub fn read_config() -> Result<DocGenConfig, SubcommandError> {
         let config =
             fs::read_to_string("./VexDoc.toml").map_err(|e| SubcommandError::FileReadError(e))?;
@@ -224,54 +144,7 @@ file_extensions = []"#;
     }
 }
 
-/// Generates HTML documentation from your source files
-/// 
-/// This is the main workhorse function that takes your source files and
-/// turns them into pretty HTML documentation. It processes files in parallel
-/// for speed, shows you progress as it works, and handles errors gracefully.
-/// 
-/// The function creates a `docs/` directory in your project root and fills
-/// it with HTML files - one for each source file that contains documentation
-/// blocks. Each HTML file includes syntax highlighting and a clean, readable
-/// layout.
-/// 
-/// # Arguments
-/// 
-/// * `conf` - Your project configuration (comment styles, file types, etc.)
-/// * `files` - The source files to process (usually found by `get_files()`)
-/// * `verbose` - Print detailed info about each file being processed
-/// * `quiet` - Suppress progress bars and notices (useful for scripts)
-/// 
-/// # Returns
-/// 
-/// * `Ok(())` - All files processed successfully
-/// * `Err(SubcommandError)` - Something went wrong (file read error, etc.)
-/// 
-/// # What it does
-/// 
-/// 1. Creates the `docs/` directory if it doesn't exist
-/// 2. Processes each file in parallel using Rayon
-/// 3. Shows a progress bar (unless quiet mode is on)
-/// 4. Extracts documentation blocks from each file
-/// 5. Generates HTML with syntax highlighting
-/// 6. Writes the HTML files to the docs folder
-/// 7. Reports any files that had no documentation blocks
-/// 
-/// # Examples
-/// 
-/// ```no_run
-/// use vexdoc::docgen::{DocGenConfig, document};
-/// use std::path::PathBuf;
-/// 
-/// let config = DocGenConfig::read_config()?;
-/// let files = vec![PathBuf::from("src/main.rs")];
-/// 
-/// // Generate docs with progress bar
-/// document(config, files, false, false)?;
-/// 
-/// // Or quietly for scripting
-/// document(config, files, false, true)?;
-/// ```
+/// Generates HTML documentation from source files
 pub fn document(conf: DocGenConfig, files: Vec<PathBuf>, verbose: bool, quiet: bool) -> Result<(), SubcommandError> {
     if let Err(e) = DirBuilder::new().create("./docs") {
         match e.kind() {

@@ -1,33 +1,6 @@
 //! # VexDoc
 //! 
-//! A documentation generator that extracts inline comments from your codebase
-//! and turns them into clean HTML documentation. Think of it as a lightweight
-//! alternative to tools like Sphinx or JSDoc, but with a focus on simplicity
-//! and speed.
-//! 
-//! ## Why VexDoc?
-//! 
-//! Most documentation generators are either too complex for simple projects or
-//! too slow for large codebases. VexDoc strikes a balance - it's fast enough
-//! to run on every commit, simple enough to set up in minutes, and flexible
-//! enough to work with any programming language.
-//! 
-//! ## Getting Started
-//! 
-//! The workflow is straightforward:
-//! 
-//! ```bash
-//! # Set up a new project
-//! vexdoc init
-//! 
-//! # Edit VexDoc.toml to match your language
-//! # Then generate docs
-//! vexdoc generate
-//! ```
-//! 
-//! ## Configuration
-//! 
-//! VexDoc uses a simple TOML file for configuration. Here's what you need:
+//! A fast documentation generator that extracts inline comments and generates HTML docs.
 //! 
 //! ```toml
 //! # Single-line comment marker (like // or #)
@@ -75,40 +48,6 @@ use crate::docgen::{document, DocGenConfig};
 use crate::errors::SubcommandError;
 
 /// Runs the main VexDoc application logic
-/// 
-/// This function handles the core workflow - whether that's initializing
-/// a new project or generating documentation from existing files. It's
-/// the central dispatch function that routes commands to the appropriate
-/// handlers.
-/// 
-/// The function is designed to be called from the main binary, but it's
-/// also exposed as part of the library API for testing and integration
-/// purposes.
-/// 
-/// # Arguments
-/// 
-/// * `args` - Parsed command line arguments containing the subcommand
-///            and any relevant options
-/// 
-/// # Returns
-/// 
-/// * `Ok(())` - Everything worked as expected
-/// * `Err(SubcommandError)` - Something went wrong (file not found,
-///                            invalid config, etc.)
-/// 
-/// # Examples
-/// 
-/// ```no_run
-/// use vexdoc::{run, cli::VexDocArgs};
-/// use argh::FromArgs;
-/// 
-/// // This is essentially what happens in main()
-/// let args = VexDocArgs::from_args(&["vexdoc", "generate"]);
-/// if let Err(e) = run(args) {
-///     eprintln!("Error: {}", e);
-///     std::process::exit(1);
-/// }
-/// ```
 pub fn run(args: VexDocArgs) -> Result<(), SubcommandError> {
     match args.subcommands {
         VexDocSubcommands::Init(initargs) => {
