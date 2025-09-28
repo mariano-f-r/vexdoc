@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use std::fs;
 use std::path::PathBuf;
 use assert_fs::fixture::TempDir;
@@ -32,7 +32,7 @@ fn benchmark_file_processing(c: &mut Criterion) {
 
     c.bench_function("file_io_sequential", |b| {
         b.iter(|| {
-            let files = black_box(&test_files);
+            let files = std::hint::black_box(&test_files);
             let _result: Vec<_> = files
                 .iter()
                 .map(|file| {
@@ -43,17 +43,19 @@ fn benchmark_file_processing(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("file_io_parallel", |b| {
+    c.bench_function("file_io_chunked", |b| {
         b.iter(|| {
-            use rayon::prelude::*;
-            let files = black_box(&test_files);
-            let _result: Vec<_> = files
-                .par_iter()
-                .map(|file| {
+            let files = std::hint::black_box(&test_files);
+            let chunk_size = 10;
+            let mut result = Vec::new();
+            
+            for chunk in files.chunks(chunk_size) {
+                for file in chunk {
                     let content = fs::read_to_string(file).unwrap();
-                    (file, content)
-                })
-                .collect();
+                    result.push((file, content));
+                }
+            }
+            result
         })
     });
 }

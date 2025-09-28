@@ -8,7 +8,7 @@ use std::{env, error::Error};
 
 use super::*;
 use assert_fs::fixture::TempDir;
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use rand::Rng;
 
 /// Creates a bunch of random files and directories for testing
 /// 
@@ -17,10 +17,11 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 /// mix of files and directories at different depths to make things
 /// interesting.
 fn rand_dir_entries(path: &Path) -> Vec<PathBuf> {
-    let item_count: usize = thread_rng().gen_range(1..31);
+    let mut rng = rand::rng();
+    let item_count: usize = rng.random_range(1..31);
     let mut paths = Vec::<PathBuf>::new();
     for i in 0..item_count {
-        let item_depth: usize = thread_rng().gen_range(0..3);
+        let item_depth: usize = rng.random_range(0..3);
         match item_depth {
             0 => {
                 let item_name = format!("tempfile{i}");
@@ -31,10 +32,11 @@ fn rand_dir_entries(path: &Path) -> Vec<PathBuf> {
             }
             1 => {
                 let item_name = format!("tempfile{i}");
-                let parent: String = thread_rng()
-                    .sample_iter(&Alphanumeric)
-                    .take(7)
-                    .map(|b| char::from(b))
+                let parent: String = (0..7)
+                    .map(|_| {
+                        let chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                        chars[rng.random_range(0..chars.len())] as char
+                    })
                     .collect();
                 let full_path = path.join(Path::new(&parent));
                 DirBuilder::new()
@@ -49,15 +51,17 @@ fn rand_dir_entries(path: &Path) -> Vec<PathBuf> {
             }
             2 => {
                 let item_name = format!("tempfile{i}");
-                let parent: String = thread_rng()
-                    .sample_iter(&Alphanumeric)
-                    .take(7)
-                    .map(|b| char::from(b))
+                let parent: String = (0..7)
+                    .map(|_| {
+                        let chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                        chars[rng.random_range(0..chars.len())] as char
+                    })
                     .collect();
-                let parent2: String = thread_rng()
-                    .sample_iter(&Alphanumeric)
-                    .take(7)
-                    .map(|b| char::from(b))
+                let parent2: String = (0..7)
+                    .map(|_| {
+                        let chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                        chars[rng.random_range(0..chars.len())] as char
+                    })
                     .collect();
                 let full_path = path.join(Path::new(&parent).join(parent2));
                 DirBuilder::new()
@@ -106,6 +110,7 @@ file_extensions = ["c", "h"]
 "#,
     )?;
 
+    let original_dir = env::current_dir()?;
     env::set_current_dir(tmp_dir.path())?;
 
     let conf = DocGenConfig::read_config().expect("Should be able to read config");
@@ -117,6 +122,8 @@ file_extensions = ["c", "h"]
             && conf.file_extensions == vec!["c".to_string(), "h".to_string()]
     );
 
+    // Restore original directory
+    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -133,6 +140,7 @@ file_extensions = []
 "#,
     )?;
 
+    let original_dir = env::current_dir()?;
     env::set_current_dir(tmp_dir.path())?;
 
     let conf = DocGenConfig::read_config();
@@ -140,6 +148,8 @@ file_extensions = []
 
     assert!(conf.is_err());
 
+    // Restore original directory
+    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -155,6 +165,7 @@ file_extensions = []
 "#,
     )?;
 
+    let original_dir = env::current_dir()?;
     env::set_current_dir(tmp_dir.path())?;
 
     let conf = DocGenConfig::read_config();
@@ -168,8 +179,12 @@ file_extensions = []
         file: _,
     } = conf.unwrap_err()
     {
+        // Restore original directory
+        env::set_current_dir(original_dir)?;
         Ok(())
     } else {
+        // Restore original directory
+        env::set_current_dir(original_dir)?;
         panic!("Did not error correctly");
     }
 }
@@ -188,10 +203,13 @@ file_extensions = ["rs"]
 "#,
     )?;
 
+    let original_dir = env::current_dir()?;
+    env::set_current_dir(tmp_dir.path())?;
+
     // Create test file with documentation
-    let test_file = tmp_dir.path().join("test.rs");
+    let test_file = "test.rs";
     fs::write(
-        &test_file,
+        test_file,
         r#"//! Test Function
 /*startsummary
 This is a test function that does something useful.
@@ -204,8 +222,6 @@ fn test_function() {
 "#,
     )?;
 
-    env::set_current_dir(tmp_dir.path())?;
-
     let conf = DocGenConfig::read_config()?;
     let files = conf.get_files()?;
     
@@ -217,7 +233,7 @@ fn test_function() {
     assert!(result.is_ok());
 
     // Check if documentation was created
-    let doc_file = tmp_dir.path().join("docs").join("test-rs.html");
+    let doc_file = Path::new("docs").join("test-rs.html");
     assert!(doc_file.exists());
 
     // Check if the documentation contains expected content
@@ -225,6 +241,8 @@ fn test_function() {
     assert!(doc_content.contains("Test Function"));
     assert!(doc_content.contains("This is a test function"));
 
+    // Restore original directory
+    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -263,6 +281,7 @@ fn included_function() {
 "#,
     )?;
 
+    let original_dir = env::current_dir()?;
     env::set_current_dir(tmp_dir.path())?;
 
     let conf = DocGenConfig::read_config()?;
@@ -272,6 +291,8 @@ fn included_function() {
     assert_eq!(files.len(), 1);
     assert!(files[0].to_string_lossy().contains("included.rs"));
 
+    // Restore original directory
+    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -295,6 +316,7 @@ file_extensions = ["rs", "py"]
     fs::write(tmp_dir.path().join("test.js"), "//! JavaScript file\nfunction test() {}")?;
     fs::write(tmp_dir.path().join("test.txt"), "This is a text file")?;
 
+    let original_dir = env::current_dir()?;
     env::set_current_dir(tmp_dir.path())?;
 
     let conf = DocGenConfig::read_config()?;
@@ -308,6 +330,8 @@ file_extensions = ["rs", "py"]
     assert!(!file_names.contains(&"test.js".to_string()));
     assert!(!file_names.contains(&"test.txt".to_string()));
 
+    // Restore original directory
+    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -329,6 +353,7 @@ file_extensions = ["rs"]
     let test_file = tmp_dir.path().join("test.rs");
     fs::write(&test_file, "//! Test\n/*startsummary\nThis is a test function.\nendsummary*/\n\nfn test() {}\n// ENDVEXDOC")?;
 
+    let original_dir = env::current_dir()?;
     env::set_current_dir(tmp_dir.path())?;
 
     let conf = DocGenConfig::read_config()?;
@@ -338,6 +363,8 @@ file_extensions = ["rs"]
     let result = document(conf, files, false, true);
     assert!(result.is_ok());
 
+    // Restore original directory
+    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -359,6 +386,7 @@ file_extensions = ["rs"]
     let test_file = tmp_dir.path().join("test.rs");
     fs::write(&test_file, "//! Test\n/*startsummary\nThis is a test function.\nendsummary*/\n\nfn test() {}\n// ENDVEXDOC")?;
 
+    let original_dir = env::current_dir()?;
     env::set_current_dir(tmp_dir.path())?;
 
     let conf = DocGenConfig::read_config()?;
@@ -371,5 +399,7 @@ file_extensions = ["rs"]
     }
     assert!(result.is_ok());
 
+    // Restore original directory
+    env::set_current_dir(original_dir)?;
     Ok(())
 }

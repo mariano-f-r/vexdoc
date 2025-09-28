@@ -146,7 +146,8 @@ file_extensions = []"#;
 
 /// Generates HTML documentation from source files
 pub fn document(conf: DocGenConfig, files: Vec<PathBuf>, verbose: bool, quiet: bool) -> Result<(), SubcommandError> {
-    if let Err(e) = DirBuilder::new().create("./docs") {
+    let docs_dir = Path::new("docs");
+    if let Err(e) = DirBuilder::new().create(docs_dir) {
         match e.kind() {
             // if it already exists we don't need to worry about it not being created
             // TODO: Consider refactor and having a genuine error for this?
@@ -188,7 +189,7 @@ pub fn document(conf: DocGenConfig, files: Vec<PathBuf>, verbose: bool, quiet: b
                 println!("Documenting {} ...", path.display());
             }
             pb.set_message(format!("Documenting {}", path.display()));
-            let result = create_doc(path, &conf);
+                    let result = create_doc(path, &conf, docs_dir);
             pb.inc(1);
             if verbose {
                 println!("Done with {}", path.display());
@@ -237,7 +238,7 @@ enum ParserState {
     Code,
 }
 
-fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandError> {
+fn create_doc(old_path: &Path, conf: &DocGenConfig, docs_dir: &Path) -> Result<bool, SubcommandError> {
     let content = fs::read_to_string(old_path).map_err(|e| SubcommandError::FileReadError(e))?;
     let mut has_vexdoc = false;
     let mut no_filesummary = false;
@@ -356,17 +357,17 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
     // This should never fail
     // TODO: Ensure this never fails
 
-    fs::write(
-        Path::new("./docs")
-            .join(
-                old_path
-                    .display()
-                    .to_string()
-                    .replace(".", "-")
-                    .replace("/", "_")
-                    .replace("\\", "_"),
-            )
-            .with_extension("html"),
+            fs::write(
+                docs_dir
+                    .join(
+                        old_path
+                            .display()
+                            .to_string()
+                            .replace(".", "-")
+                            .replace("/", "_")
+                            .replace("\\", "_"),
+                    )
+                    .with_extension("html"),
         doc_boilerplate_memo(&old_path)
             .with_container(body)
             .with_script_literal(r#"hljs.highlightAll();"#)
