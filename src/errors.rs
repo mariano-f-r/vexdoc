@@ -32,6 +32,19 @@ pub enum UserErrorKind {
     Annotations,
 }
 
+/// Represents a validation error with its corresponding suggestion
+#[derive(Debug)]
+pub struct ValidationError {
+    pub message: String,
+    pub suggestion: String,
+}
+
+impl ValidationError {
+    pub fn new(message: String, suggestion: String) -> Self {
+        Self { message, suggestion }
+    }
+}
+
 // impl SubcommandError {
 //     pub fn solution(&self) -> Option<&String> {
 //         if let Self::UserError {

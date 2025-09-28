@@ -1,7 +1,6 @@
 /* VexDoc Styles - Clean and Modern
  * 
- * I've updated this to be more modern and professional looking.
- * Dark theme with clean typography and better spacing.
+ * Light theme optimized for all of your readability and printing needs.
  */
 
 * {
@@ -12,8 +11,8 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #0a0a0a;
-    color: #e5e5e5;
+    background-color: #ffffff;
+    color: #333333;
     line-height: 1.6;
     font-size: 16px;
 }
@@ -28,7 +27,7 @@ h1 {
     font-size: 2.5rem;
     font-weight: 700;
     margin: 0 0 1rem 0;
-    color: #ffffff;
+    color: #1a1a1a;
     letter-spacing: -0.02em;
 }
 
@@ -36,8 +35,8 @@ h2 {
     font-size: 1.75rem;
     font-weight: 600;
     margin: 2rem 0 1rem 0;
-    color: #ffffff;
-    border-bottom: 2px solid #333;
+    color: #2c2c2c;
+    border-bottom: 2px solid #e0e0e0;
     padding-bottom: 0.5rem;
 }
 
@@ -45,13 +44,13 @@ h3 {
     font-size: 1.25rem;
     font-weight: 500;
     margin: 1.5rem 0 0.75rem 0;
-    color: #e5e5e5;
+    color: #333333;
 }
 /* Code blocks - modern and clean */
 pre {
-    background-color: #1a1a1a;
+    background-color: #f8f9fa;
     padding: 24px;
-    border: 1px solid #333;
+    border: 1px solid #e1e5e9;
     border-radius: 8px;
     overflow-x: auto;
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
@@ -60,29 +59,31 @@ pre {
     margin: 1.5rem 0;
     font-size: 14px;
     line-height: 1.5;
-    color: #e5e5e5;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    color: #2c3e50;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 code {
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
     font-size: 0.9em;
-    background-color: #2a2a2a;
+    background-color: #f1f3f4;
     padding: 2px 6px;
     border-radius: 4px;
-    color: #e5e5e5;
+    color: #2c3e50;
+    border: 1px solid #e1e5e9;
 }
 
 /* Comments get a subtle italic treatment */
 .comment {
     font-style: italic;
-    color: #888;
-    background-color: #1a1a1a;
+    color: #555;
+    background-color: #f8f9fa;
     padding: 16px 20px;
     border-radius: 6px;
-    border-left: 4px solid #444;
+    border-left: 4px solid #007acc;
     margin: 1rem 0;
     font-size: 15px;
     line-height: 1.6;
+    border: 1px solid #e1e5e9;
 }
 /* Responsive design */
 @media (max-width: 768px) {
@@ -104,23 +105,44 @@ code {
     }
 }
 
-/* Print styles - because sometimes you want to print your docs */
+/* Print styles - optimized for printing */
 @media print {
     body {
-        background-color: #fff;
-        color: #000;
+        background-color: #fff !important;
+        color: #000 !important;
+        font-size: 12pt;
+        line-height: 1.4;
     }
     .container {
         width: 100%;
         padding: 0;
+        max-width: none;
+    }
+    h1, h2, h3 {
+        color: #000 !important;
+        page-break-after: avoid;
+    }
+    h2 {
+        border-bottom: 1px solid #ccc !important;
     }
     pre {
         page-break-inside: avoid;
-        background-color: #f5f5f5;
-        border: 1px solid #ddd;
+        background-color: #f8f9fa !important;
+        border: 1px solid #ccc !important;
+        color: #000 !important;
+        font-size: 10pt;
+        padding: 12px;
+    }
+    code {
+        background-color: #f1f3f4 !important;
+        border: 1px solid #ccc !important;
+        color: #000 !important;
     }
     .comment {
-        background-color: #f9f9f9;
-        border-left: 4px solid #ccc;
+        background-color: #f8f9fa !important;
+        border-left: 4px solid #007acc !important;
+        border: 1px solid #ccc !important;
+        color: #000 !important;
+        page-break-inside: avoid;
     }
 }

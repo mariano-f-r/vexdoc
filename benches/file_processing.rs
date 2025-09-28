@@ -9,11 +9,17 @@ fn create_test_files(dir: &std::path::Path, count: usize) -> Vec<PathBuf> {
         let file_path = dir.join(format!("test_file_{}.rs", i));
         let content = format!(
             r#"//! Test Function {}
+/*startsummary
+This is a test function for benchmarking purposes.
+endsummary*/
 fn test_function_{}() {{
     println!("Hello from function {}");
 }}
 
 //! Another Function
+/*startsummary
+This is another test function for benchmarking.
+endsummary*/
 fn another_function_{}() {{
     println!("Another function {}", i);
 }}

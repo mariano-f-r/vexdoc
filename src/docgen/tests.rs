@@ -1,14 +1,23 @@
 //! Test suite for the docgen module
-//! 
-//! These tests make sure our documentation generation actually works.
-//! I've tried to cover the main happy paths and a few edge cases,
-//! but if you find bugs, feel free to add more tests!
+/*startsummary
+These tests make sure our documentation generation actually works.
+I've tried to cover the main happy paths and a few edge cases,
+but if you find bugs, feel free to add more tests!
+endsummary*/
 
 use std::{env, error::Error};
 
 use super::*;
 use assert_fs::fixture::TempDir;
 use rand::Rng;
+
+/// Generates a random alphanumeric string of the specified length
+fn generate_random_string(rng: &mut impl Rng, len: usize) -> String {
+    const CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    (0..len)
+        .map(|_| CHARS[rng.random_range(0..CHARS.len())] as char)
+        .collect()
+}
 
 /// Creates a bunch of random files and directories for testing
 /// 
@@ -32,12 +41,7 @@ fn rand_dir_entries(path: &Path) -> Vec<PathBuf> {
             }
             1 => {
                 let item_name = format!("tempfile{i}");
-                let parent: String = (0..7)
-                    .map(|_| {
-                        let chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-                        chars[rng.random_range(0..chars.len())] as char
-                    })
-                    .collect();
+                let parent = generate_random_string(&mut rng, 7);
                 let full_path = path.join(Path::new(&parent));
                 DirBuilder::new()
                     .recursive(true)
@@ -51,18 +55,8 @@ fn rand_dir_entries(path: &Path) -> Vec<PathBuf> {
             }
             2 => {
                 let item_name = format!("tempfile{i}");
-                let parent: String = (0..7)
-                    .map(|_| {
-                        let chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-                        chars[rng.random_range(0..chars.len())] as char
-                    })
-                    .collect();
-                let parent2: String = (0..7)
-                    .map(|_| {
-                        let chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-                        chars[rng.random_range(0..chars.len())] as char
-                    })
-                    .collect();
+                let parent = generate_random_string(&mut rng, 7);
+                let parent2 = generate_random_string(&mut rng, 7);
                 let full_path = path.join(Path::new(&parent).join(parent2));
                 DirBuilder::new()
                     .recursive(true)

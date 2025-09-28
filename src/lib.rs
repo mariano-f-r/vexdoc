@@ -1,6 +1,7 @@
 //! # VexDoc
-//! 
-//! A fast documentation generator that extracts inline comments and generates HTML docs.
+/*startsummary
+A fast documentation generator that extracts inline comments and generates HTML docs.
+endsummary*/
 //! 
 //! ```toml
 //! # Single-line comment marker (like // or #)

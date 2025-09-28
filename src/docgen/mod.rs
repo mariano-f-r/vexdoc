@@ -1,6 +1,9 @@
 //! Documentation generation module
+/*startsummary
+This module handles the generation of HTML documentation from source files.
+endsummary*/
 
-use crate::errors::{SubcommandError, UserErrorKind};
+use crate::errors::{SubcommandError, UserErrorKind, ValidationError};
 use build_html::{Container, ContainerType, Html, HtmlContainer, HtmlElement, HtmlPage, HtmlTag};
 use serde::Deserialize;
 use std::ffi::OsString;
@@ -37,48 +40,57 @@ impl DocGenConfig {
                 file: "./VexDoc.toml".into(),
             })?;
 
-        let mut errors = Vec::new();
-        let mut suggestions = Vec::new();
+        let mut validation_errors = Vec::new();
 
         if config.multi_comments.is_empty() {
-            errors.push("No multiline comment delimiters specified".to_string());
-            suggestions.push("Add multiline comment delimiters, e.g., multi_comments = [\"/*\", \"*/\"]".to_string());
+            validation_errors.push(ValidationError::new(
+                "No multiline comment delimiters specified".to_string(),
+                "Add multiline comment delimiters, e.g., multi_comments = [\"/*\", \"*/\"]".to_string(),
+            ));
         }
         if config.inline_comments.is_empty() {
-            errors.push("No inline comment delimiter specified".to_string());
-            suggestions.push("Add an inline comment delimiter, e.g., inline_comments = \"//\"".to_string());
+            validation_errors.push(ValidationError::new(
+                "No inline comment delimiter specified".to_string(),
+                "Add an inline comment delimiter, e.g., inline_comments = \"//\"".to_string(),
+            ));
         }
         if config.file_extensions.is_empty() {
-            errors.push("No file extensions specified".to_string());
-            suggestions.push("Add file extensions without the period, e.g., file_extensions = [\"rs\", \"py\", \"c\"]".to_string());
+            validation_errors.push(ValidationError::new(
+                "No file extensions specified".to_string(),
+                "Add file extensions without the period, e.g., file_extensions = [\"rs\", \"py\", \"c\"]".to_string(),
+            ));
         }
         
         // Validate multiline comment pairs
         if config.multi_comments.len() == 1 {
-            errors.push("Multiline comments must have both opening and closing delimiters".to_string());
-            suggestions.push("Add both opening and closing delimiters, e.g., multi_comments = [\"/*\", \"*/\"]".to_string());
+            validation_errors.push(ValidationError::new(
+                "Multiline comments must have both opening and closing delimiters".to_string(),
+                "Add both opening and closing delimiters, e.g., multi_comments = [\"/*\", \"*/\"]".to_string(),
+            ));
         }
         
         // Validate file extensions format
         for ext in &config.file_extensions {
             if ext.starts_with('.') {
                 let error_msg = format!("File extension '{}' should not start with a period", ext);
-                errors.push(error_msg);
-                suggestions.push("Remove the leading period from file extensions".to_string());
+                validation_errors.push(ValidationError::new(
+                    error_msg,
+                    "Remove the leading period from file extensions".to_string(),
+                ));
             }
         }
 
-        if !errors.is_empty() {
+        if !validation_errors.is_empty() {
             let mut error_message = String::new();
             error_message.push_str("Configuration validation failed:\n\n");
             
-            for (i, error) in errors.iter().enumerate() {
-                error_message.push_str(&format!("{}. {}\n", i + 1, error));
+            for (i, error) in validation_errors.iter().enumerate() {
+                error_message.push_str(&format!("{}. {}\n", i + 1, error.message));
             }
             
             error_message.push_str("\nSuggested fixes:\n");
-            for (i, suggestion) in suggestions.iter().enumerate() {
-                error_message.push_str(&format!("{}. {}\n", i + 1, suggestion));
+            for (i, error) in validation_errors.iter().enumerate() {
+                error_message.push_str(&format!("{}. {}\n", i + 1, error.suggestion));
             }
             
             return Err(SubcommandError::UserError {
@@ -386,7 +398,7 @@ fn doc_boilerplate_memo(path: &impl Deref<Target = Path>) -> HtmlPage {
         .with_title(format!("{} - VexDoc", filename))
         .with_style(include_str!("styles.css"))
         .with_stylesheet(
-            "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css",
+            "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css",
         )
         .with_script_link(
             "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js",
