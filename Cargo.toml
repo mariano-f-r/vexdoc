@@ -3,14 +3,28 @@ name = "vexdoc"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+opt-level = "z"  # Optimize for size
+lto = true       # Link-time optimization
+codegen-units = 1
+panic = "abort"  # Smaller binary
+strip = true     # Remove debug symbols
+
 [dependencies]
 argh = "0.1.12"
-serde = { version = "1.0.204", features = ["derive"] }
+serde = { version = "1.0.204", features = ["derive"], default-features = false }
 toml = "0.8.14"
 build_html = "2.5.0"
+rayon = "1.8.0"
+indicatif = "0.17.0"
 
 [dev-dependencies]
 assert_cmd = "2.0.14"
 assert_fs = "1.1.1"
 predicates = "3.1.0"
 rand = "0.8.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "file_processing"
+harness = false

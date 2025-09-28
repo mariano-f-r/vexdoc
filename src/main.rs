@@ -1,17 +1,36 @@
+//! VexDoc - The main entry point
+//! 
+//! This is where everything starts. We parse command line arguments,
+//! run the appropriate subcommand, and handle any errors that come up.
+//! Pretty straightforward stuff, really.
+
 use std::error::Error;
 use std::io;
 use std::process;
 
 use vexdoc::{cli::VexDocArgs, errors::SubcommandError, run};
 
+/// The main function - where the magic happens
+/// 
+/// This is pretty much just a wrapper around the actual logic in lib.rs.
+/// We parse the command line args, run the command, and if something
+/// goes wrong, we print a nice error message and exit with code 1.
+/// 
+/// The error handling here is a bit verbose, but I wanted to make sure
+/// users get helpful messages when things go wrong. Nothing worse than
+/// a cryptic error message when you're trying to generate docs!
 fn main() {
     let args: VexDocArgs = argh::from_env();
     let mut exit_code = 0;
-    // we only care about Err values because the actual results are all side effects
+    
+    // Run the actual command and see what happens
     if let Err(err) = run(args) {
         exit_code = 1;
+        
+        // Debug info for developers (you can ignore this)
         dbg!(err.source());
         dbg!(&err);
+        // Handle different types of errors with user-friendly messages
         match &err {
             SubcommandError::InitError(ref e) => match e.kind() {
                 io::ErrorKind::AlreadyExists => {

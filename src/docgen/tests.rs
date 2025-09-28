@@ -1,9 +1,21 @@
+//! Test suite for the docgen module
+//! 
+//! These tests make sure our documentation generation actually works.
+//! I've tried to cover the main happy paths and a few edge cases,
+//! but if you find bugs, feel free to add more tests!
+
 use std::{env, error::Error};
 
 use super::*;
-use assert_fs::{fixture::TempDir, NamedTempFile};
+use assert_fs::fixture::TempDir;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
+/// Creates a bunch of random files and directories for testing
+/// 
+/// This is used to test that our file discovery logic works correctly
+/// even when there are lots of files scattered around. It creates a
+/// mix of files and directories at different depths to make things
+/// interesting.
 fn rand_dir_entries(path: &Path) -> Vec<PathBuf> {
     let item_count: usize = thread_rng().gen_range(1..31);
     let mut paths = Vec::<PathBuf>::new();
@@ -83,11 +95,10 @@ fn random_get_all_files() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn reads_config() -> Result<(), Box<dyn Error>> {
-    let tmp_config = NamedTempFile::new("VexDoc.toml")?;
+    let tmp_dir = TempDir::new()?;
 
-    // we know there will be a parent because of how NamedTempFile works
     fs::write(
-        tmp_config.path(),
+        tmp_dir.path().join("VexDoc.toml"),
         r#"inline_comments = "//"
 multi_comments = ["/*", "*/"]
 ignored_dirs = []
@@ -95,7 +106,7 @@ file_extensions = ["c", "h"]
 "#,
     )?;
 
-    env::set_current_dir(tmp_config.parent().unwrap())?;
+    env::set_current_dir(tmp_dir.path())?;
 
     let conf = DocGenConfig::read_config().expect("Should be able to read config");
 
@@ -161,4 +172,204 @@ file_extensions = []
     } else {
         panic!("Did not error correctly");
     }
+}
+
+#[test]
+fn test_document_generation() -> Result<(), Box<dyn Error>> {
+    let tmp_dir = TempDir::new()?;
+    
+    // Create test config
+    fs::write(
+        tmp_dir.path().join("VexDoc.toml"),
+        r#"inline_comments = "//"
+multi_comments = ["/*", "*/"]
+ignored_dirs = []
+file_extensions = ["rs"]
+"#,
+    )?;
+
+    // Create test file with documentation
+    let test_file = tmp_dir.path().join("test.rs");
+    fs::write(
+        &test_file,
+        r#"//! Test Function
+/*startsummary
+This is a test function that does something useful.
+endsummary*/
+
+fn test_function() {
+    println!("Hello, world!");
+}
+// ENDVEXDOC
+"#,
+    )?;
+
+    env::set_current_dir(tmp_dir.path())?;
+
+    let conf = DocGenConfig::read_config()?;
+    let files = conf.get_files()?;
+    
+    // Test document generation
+    let result = document(conf, files, false, false);
+    if let Err(e) = &result {
+        eprintln!("Document generation failed: {}", e);
+    }
+    assert!(result.is_ok());
+
+    // Check if documentation was created
+    let doc_file = tmp_dir.path().join("docs").join("test-rs.html");
+    assert!(doc_file.exists());
+
+    // Check if the documentation contains expected content
+    let doc_content = fs::read_to_string(doc_file)?;
+    assert!(doc_content.contains("Test Function"));
+    assert!(doc_content.contains("This is a test function"));
+
+    Ok(())
+}
+
+#[test]
+fn test_ignored_directories() -> Result<(), Box<dyn Error>> {
+    let tmp_dir = TempDir::new()?;
+    
+    // Create test config with ignored directory
+    fs::write(
+        tmp_dir.path().join("VexDoc.toml"),
+        r#"inline_comments = "//"
+multi_comments = ["/*", "*/"]
+ignored_dirs = ["ignored"]
+file_extensions = ["rs"]
+"#,
+    )?;
+
+    // Create files in ignored directory
+    fs::create_dir_all(tmp_dir.path().join("ignored"))?;
+    fs::write(
+        tmp_dir.path().join("ignored").join("ignored.rs"),
+        r#"//! This should be ignored
+fn ignored_function() {
+    println!("This should not be documented");
+}
+"#,
+    )?;
+
+    // Create file in root directory
+    fs::write(
+        tmp_dir.path().join("included.rs"),
+        r#"//! This should be included
+fn included_function() {
+    println!("This should be documented");
+}
+"#,
+    )?;
+
+    env::set_current_dir(tmp_dir.path())?;
+
+    let conf = DocGenConfig::read_config()?;
+    let files = conf.get_files()?;
+    
+    // Should only find the included file, not the ignored one
+    assert_eq!(files.len(), 1);
+    assert!(files[0].to_string_lossy().contains("included.rs"));
+
+    Ok(())
+}
+
+#[test]
+fn test_file_extension_filtering() -> Result<(), Box<dyn Error>> {
+    let tmp_dir = TempDir::new()?;
+    
+    // Create test config with specific file extensions
+    fs::write(
+        tmp_dir.path().join("VexDoc.toml"),
+        r#"inline_comments = "//"
+multi_comments = ["/*", "*/"]
+ignored_dirs = []
+file_extensions = ["rs", "py"]
+"#,
+    )?;
+
+    // Create files with different extensions
+    fs::write(tmp_dir.path().join("test.rs"), "//! Rust file\nfn test() {}")?;
+    fs::write(tmp_dir.path().join("test.py"), "#! Python file\ndef test(): pass")?;
+    fs::write(tmp_dir.path().join("test.js"), "//! JavaScript file\nfunction test() {}")?;
+    fs::write(tmp_dir.path().join("test.txt"), "This is a text file")?;
+
+    env::set_current_dir(tmp_dir.path())?;
+
+    let conf = DocGenConfig::read_config()?;
+    let files = conf.get_files()?;
+    
+    // Should only find .rs and .py files
+    assert_eq!(files.len(), 2);
+    let file_names: Vec<String> = files.iter().map(|f| f.file_name().unwrap().to_string_lossy().to_string()).collect();
+    assert!(file_names.contains(&"test.rs".to_string()));
+    assert!(file_names.contains(&"test.py".to_string()));
+    assert!(!file_names.contains(&"test.js".to_string()));
+    assert!(!file_names.contains(&"test.txt".to_string()));
+
+    Ok(())
+}
+
+#[test]
+fn test_quiet_mode() -> Result<(), Box<dyn Error>> {
+    let tmp_dir = TempDir::new()?;
+    
+    // Create test config
+    fs::write(
+        tmp_dir.path().join("VexDoc.toml"),
+        r#"inline_comments = "//"
+multi_comments = ["/*", "*/"]
+ignored_dirs = []
+file_extensions = ["rs"]
+"#,
+    )?;
+
+    // Create test file
+    let test_file = tmp_dir.path().join("test.rs");
+    fs::write(&test_file, "//! Test\n/*startsummary\nThis is a test function.\nendsummary*/\n\nfn test() {}\n// ENDVEXDOC")?;
+
+    env::set_current_dir(tmp_dir.path())?;
+
+    let conf = DocGenConfig::read_config()?;
+    let files = conf.get_files()?;
+    
+    // Test quiet mode (should not panic or fail)
+    let result = document(conf, files, false, true);
+    assert!(result.is_ok());
+
+    Ok(())
+}
+
+#[test]
+fn test_verbose_mode() -> Result<(), Box<dyn Error>> {
+    let tmp_dir = TempDir::new()?;
+    
+    // Create test config
+    fs::write(
+        tmp_dir.path().join("VexDoc.toml"),
+        r#"inline_comments = "//"
+multi_comments = ["/*", "*/"]
+ignored_dirs = []
+file_extensions = ["rs"]
+"#,
+    )?;
+
+    // Create test file
+    let test_file = tmp_dir.path().join("test.rs");
+    fs::write(&test_file, "//! Test\n/*startsummary\nThis is a test function.\nendsummary*/\n\nfn test() {}\n// ENDVEXDOC")?;
+
+    env::set_current_dir(tmp_dir.path())?;
+
+    let conf = DocGenConfig::read_config()?;
+    let files = conf.get_files()?;
+    
+    // Test verbose mode (should not panic or fail)
+    let result = document(conf, files, true, false);
+    if let Err(e) = &result {
+        eprintln!("Verbose mode test failed: {}", e);
+    }
+    assert!(result.is_ok());
+
+    Ok(())
 }

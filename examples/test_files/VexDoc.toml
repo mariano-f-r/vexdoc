@@ -1,0 +1,4 @@
+inline_comments = "//"
+multi_comments = ["/*", "*/"]
+ignored_dirs = ["target", "node_modules", ".git"]
+file_extensions = ["rs"]

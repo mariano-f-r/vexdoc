@@ -1,38 +1,110 @@
+/* VexDoc Styles - Clean and Modern
+ * 
+ * I've updated this to be more modern and professional looking.
+ * Dark theme with clean typography and better spacing.
+ */
+
+* {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #fff;
-    color: #000;
+    background-color: #0a0a0a;
+    color: #e5e5e5;
+    line-height: 1.6;
+    font-size: 16px;
 }
 .container {
-    width: 80%;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 40px 20px;
 }
-h1, h2, h3 {
-    border-bottom: 1px solid #000;
-    padding-bottom: 10px;
+
+/* Modern typography with better hierarchy */
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    color: #ffffff;
+    letter-spacing: -0.02em;
 }
+
+h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin: 2rem 0 1rem 0;
+    color: #ffffff;
+    border-bottom: 2px solid #333;
+    padding-bottom: 0.5rem;
+}
+
+h3 {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin: 1.5rem 0 0.75rem 0;
+    color: #e5e5e5;
+}
+/* Code blocks - modern and clean */
 pre {
-    background-color: #f4f4f4;
-    padding: 5px; /* Equal padding on all sides */
-    border: 1px solid #ccc;
+    background-color: #1a1a1a;
+    padding: 24px;
+    border: 1px solid #333;
+    border-radius: 8px;
     overflow-x: auto;
-    font-family: "Courier New", Courier, monospace;
-    white-space: pre-wrap; /* Ensure long lines wrap */
-    word-wrap: break-word;  /* Ensure long lines break */
-    margin: 0; /* Remove margin */
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 1.5rem 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #e5e5e5;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 code {
-    font-family: inherit;
-    font-size: 1em;
-    padding: inherit;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+    font-size: 0.9em;
+    background-color: #2a2a2a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #e5e5e5;
 }
+
+/* Comments get a subtle italic treatment */
 .comment {
     font-style: italic;
-    color: #555;
+    color: #888;
+    background-color: #1a1a1a;
+    padding: 16px 20px;
+    border-radius: 6px;
+    border-left: 4px solid #444;
+    margin: 1rem 0;
+    font-size: 15px;
+    line-height: 1.6;
 }
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px 16px;
+    }
+    
+    h1 {
+        font-size: 2rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    pre {
+        padding: 16px;
+        font-size: 13px;
+    }
+}
+
+/* Print styles - because sometimes you want to print your docs */
 @media print {
     body {
         background-color: #fff;
@@ -44,5 +116,11 @@ code {
     }
     pre {
         page-break-inside: avoid;
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+    }
+    .comment {
+        background-color: #f9f9f9;
+        border-left: 4px solid #ccc;
     }
 }
