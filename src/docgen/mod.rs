@@ -1,4 +1,9 @@
-use crate::errors::{SubcommandError, UserErrorKind};
+//! Documentation generation module
+/*startsummary
+This module handles the generation of HTML documentation from source files.
+endsummary*/
+
+use crate::errors::{SubcommandError, UserErrorKind, ValidationError};
 use build_html::{Container, ContainerType, Html, HtmlContainer, HtmlElement, HtmlPage, HtmlTag};
 use serde::Deserialize;
 use std::ffi::OsString;
@@ -6,11 +11,13 @@ use std::fs::{self, DirBuilder, File};
 use std::io::{self, ErrorKind, Write};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use rayon::prelude::*;
+use indicatif::{ProgressBar, ProgressStyle};
 
 #[cfg(test)]
 mod tests;
 
-// TODO: write some awful configs to ensure that error handling is decent
+/// Configuration for VexDoc processing
 #[derive(Debug, Deserialize)]
 pub struct DocGenConfig {
     inline_comments: String,
@@ -20,8 +27,7 @@ pub struct DocGenConfig {
 }
 
 impl DocGenConfig {
-    // TODO: prevent user from creating configs without multiline comments. Perhaps create
-    // UserError struct and implement Error on it?
+    /// Loads configuration from VexDoc.toml
     pub fn read_config() -> Result<DocGenConfig, SubcommandError> {
         let config =
             fs::read_to_string("./VexDoc.toml").map_err(|e| SubcommandError::FileReadError(e))?;
@@ -34,25 +40,61 @@ impl DocGenConfig {
                 file: "./VexDoc.toml".into(),
             })?;
 
-        let mut error = false;
-        let mut solution = String::new();
+        let mut validation_errors = Vec::new();
 
-        if config.multi_comments.len() < 1 {
-            error = true;
-            solution.push_str("there must be more than zero multiline comment delmiter in the config. Add multiline comments.\n")
+        if config.multi_comments.is_empty() {
+            validation_errors.push(ValidationError::new(
+                "No multiline comment delimiters specified".to_string(),
+                "Add multiline comment delimiters, e.g., multi_comments = [\"/*\", \"*/\"]".to_string(),
+            ));
         }
         if config.inline_comments.is_empty() {
-            error = true;
-            solution.push_str("there must be an inline comment delimeter in the config. Add a single line comment delimeter.\n")
+            validation_errors.push(ValidationError::new(
+                "No inline comment delimiter specified".to_string(),
+                "Add an inline comment delimiter, e.g., inline_comments = \"//\"".to_string(),
+            ));
         }
         if config.file_extensions.is_empty() {
-            error = true;
-            solution.push_str("config must have at least one file extension. Add a file extension without the period: eg 'py', 'h' or 'c'\n")
+            validation_errors.push(ValidationError::new(
+                "No file extensions specified".to_string(),
+                "Add file extensions without the period, e.g., file_extensions = [\"rs\", \"py\", \"c\"]".to_string(),
+            ));
+        }
+        
+        // Validate multiline comment pairs
+        if config.multi_comments.len() == 1 {
+            validation_errors.push(ValidationError::new(
+                "Multiline comments must have both opening and closing delimiters".to_string(),
+                "Add both opening and closing delimiters, e.g., multi_comments = [\"/*\", \"*/\"]".to_string(),
+            ));
+        }
+        
+        // Validate file extensions format
+        for ext in &config.file_extensions {
+            if ext.starts_with('.') {
+                let error_msg = format!("File extension '{}' should not start with a period", ext);
+                validation_errors.push(ValidationError::new(
+                    error_msg,
+                    "Remove the leading period from file extensions".to_string(),
+                ));
+            }
         }
 
-        if error {
+        if !validation_errors.is_empty() {
+            let mut error_message = String::new();
+            error_message.push_str("Configuration validation failed:\n\n");
+            
+            for (i, error) in validation_errors.iter().enumerate() {
+                error_message.push_str(&format!("{}. {}\n", i + 1, error.message));
+            }
+            
+            error_message.push_str("\nSuggested fixes:\n");
+            for (i, error) in validation_errors.iter().enumerate() {
+                error_message.push_str(&format!("{}. {}\n", i + 1, error.suggestion));
+            }
+            
             return Err(SubcommandError::UserError {
-                causes: solution,
+                causes: error_message,
                 source: None,
                 kind: UserErrorKind::Config,
                 file: "VexDoc.toml".into(),
@@ -65,36 +107,38 @@ impl DocGenConfig {
     pub fn get_files(&self) -> Result<Vec<PathBuf>, SubcommandError> {
         match DocGenConfig::get_files_helper(".".into(), &self.ignored_dirs) {
             Err(e) => return Err(SubcommandError::FileReadError(e)),
-            Ok(mut files) => {
-                files.retain(|f| match f.extension() {
-                    None => false,
-                    // Find any matches to the file extension in our config
-                    Some(ext) => self
-                        .file_extensions
-                        .iter()
-                        .any(|e| &OsString::from(e) == ext),
-                });
-                Ok(files)
+            Ok(files) => {
+                // Filter files by extension more efficiently
+                let filtered_files: Vec<PathBuf> = files
+                    .into_iter()
+                    .filter(|f| {
+                        f.extension()
+                            .map(|ext| self.file_extensions.iter().any(|e| OsString::from(e) == ext))
+                            .unwrap_or(false)
+                    })
+                    .collect();
+                Ok(filtered_files)
             }
         }
     }
 
-    fn get_files_helper(path: PathBuf, ign: &Vec<PathBuf>) -> io::Result<Vec<PathBuf>> {
-        let mut output = Vec::<PathBuf>::new();
+    fn get_files_helper(path: PathBuf, ign: &[PathBuf]) -> io::Result<Vec<PathBuf>> {
+        let mut output = Vec::new();
         let current_directory = fs::read_dir(path)?;
+        
         for item in current_directory {
             let entry = item?;
+            let file_name = entry.file_name();
+            
             if entry.file_type()?.is_dir() {
-                if !ign.iter().any(|i| &entry.file_name() == i.as_os_str()) {
-                    let new_files = DocGenConfig::get_files_helper(entry.path(), &ign)?;
-                    output.extend(new_files.into_iter())
-                } else {
-                    println!("Ignoring {}", entry.path().display());
+                if !ign.iter().any(|i| &file_name == i.as_os_str()) {
+                    let new_files = DocGenConfig::get_files_helper(entry.path(), ign)?;
+                    output.extend(new_files);
                 }
             } else {
-                let path = entry.path();
-                if !path.starts_with("./.git") && !path.ends_with(".gitignore") {
-                    output.push(entry.path())
+                let entry_path = entry.path();
+                if !entry_path.starts_with("./.git") && !entry_path.ends_with(".gitignore") {
+                    output.push(entry_path);
                 }
             }
         }
@@ -106,14 +150,16 @@ multi_comments = []
 ignored_dirs = []
 file_extensions = []"#;
         dir.push("VexDoc.toml");
-        let mut file = File::create_new("./VexDoc.toml")?;
+        let mut file = File::create_new(&dir)?;
         file.write_all(content.as_bytes())?;
         Ok(())
     }
 }
 
-pub fn document(conf: DocGenConfig, files: Vec<PathBuf>) -> Result<(), SubcommandError> {
-    if let Err(e) = DirBuilder::new().create("./docs") {
+/// Generates HTML documentation from source files
+pub fn document(conf: DocGenConfig, files: Vec<PathBuf>, verbose: bool, quiet: bool) -> Result<(), SubcommandError> {
+    let docs_dir = Path::new("docs");
+    if let Err(e) = DirBuilder::new().create(docs_dir) {
         match e.kind() {
             // if it already exists we don't need to worry about it not being created
             // TODO: Consider refactor and having a genuine error for this?
@@ -126,25 +172,67 @@ pub fn document(conf: DocGenConfig, files: Vec<PathBuf>) -> Result<(), Subcomman
         .map(|p| p.strip_prefix("./").unwrap_or(p))
         .collect();
 
-    let mut notices = Vec::<String>::new();
-
-    for path in &new_files {
-        println!("Documenting {} ...", path.display());
-        if !create_doc(path, &conf)? {
-            notices.push(format!(
-                "NOTICE: {} contained no annotations, so nothing was actually written to its documentation. Ensure it has correct annotations",
-                path.display()
-            ))
+    if new_files.is_empty() {
+        if !quiet {
+            println!("NOTICE: no files were documented. Ensure your config has the appropriate file extensions");
         }
-        println!("Done")
+        return Ok(());
     }
 
-    if files.len() == 0 {
-        notices.push("NOTICE: no files were documented. Ensure your config has the appropriate file extensions".into());
+    // Create progress bar only if not quiet
+    let pb = if quiet {
+        ProgressBar::hidden()
+    } else {
+        let pb = ProgressBar::new(new_files.len() as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+                .unwrap()
+                .progress_chars("#>-"),
+        );
+        pb
+    };
+
+    // Process files in parallel
+    let results: Vec<Result<bool, SubcommandError>> = new_files
+        .par_iter()
+        .map(|path| {
+            if verbose {
+                println!("Documenting {} ...", path.display());
+            }
+            pb.set_message(format!("Documenting {}", path.display()));
+                    let result = create_doc(path, &conf, docs_dir);
+            pb.inc(1);
+            if verbose {
+                println!("Done with {}", path.display());
+            }
+            result
+        })
+        .collect();
+
+    if !quiet {
+        pb.finish_with_message("Documentation generation complete!");
     }
 
-    for n in notices {
-        println!("{}", n);
+    // Collect results and notices
+    let mut notices = Vec::<String>::new();
+    for (i, result) in results.into_iter().enumerate() {
+        match result {
+            Ok(false) => {
+                notices.push(format!(
+                    "NOTICE: {} contained no annotations, so nothing was actually written to its documentation. Ensure it has correct annotations",
+                    new_files[i].display()
+                ));
+            }
+            Err(e) => return Err(e),
+            Ok(true) => {} // File had documentation, no notice needed
+        }
+    }
+
+    if !quiet {
+        for notice in notices {
+            println!("{}", notice);
+        }
     }
 
     Ok(())
@@ -162,49 +250,61 @@ enum ParserState {
     Code,
 }
 
-fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandError> {
+fn create_doc(old_path: &Path, conf: &DocGenConfig, docs_dir: &Path) -> Result<bool, SubcommandError> {
     let content = fs::read_to_string(old_path).map_err(|e| SubcommandError::FileReadError(e))?;
     let mut has_vexdoc = false;
     let mut no_filesummary = false;
-    // let mut proper = true;
     let single_multiline = conf.multi_comments.get(1).is_none();
+    let filename = old_path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown");
+    
     let mut body = Container::new(ContainerType::Div)
         .with_attributes([("class", "container")])
-        .with_header(1, format!("Documentation from {}", old_path.display()));
+        .with_header(1, filename);
 
     let mut state = ParserState::Ignore;
-    let mut included = Vec::<&str>::new();
+    let mut included = Vec::<&str>::with_capacity(32); // Pre-allocate for better performance
+    let mut comment_buffer = String::with_capacity(256); // Buffer for comment text
+    let mut code_buffer = String::with_capacity(512); // Buffer for code text
+    
+    // Pre-compute common strings to avoid allocations in hot loop
+    let inline_prefix = format!("{}!", conf.inline_comments);
+    let filesummary_prefix = format!("{}filesummary", conf.multi_comments[0]);
+    let endsummary_suffix = if single_multiline {
+        format!("endsummary{}", conf.multi_comments[0])
+    } else {
+        format!("endsummary{}", conf.multi_comments[1])
+    };
+    let endvexdoc = format!("{}ENDVEXDOC", conf.inline_comments);
 
     for line in content.lines() {
         match state {
             ParserState::Ignore => {
-                if line.starts_with(&format!("{}!", conf.inline_comments)) {
+                if line.starts_with(&inline_prefix) {
                     no_filesummary = true;
                     has_vexdoc = true;
                     state = ParserState::Title;
                     // Line is guaranteed to have at least n+1 characters due to above check
-                    body.add_header(2, &line[(conf.inline_comments.len() + 1)..].trim_start());
-                } else if !no_filesummary
-                    && line.starts_with(&format!("{}filesummary", conf.multi_comments[0]))
-                // will fail if no multiline comments are present
-                {
+                    body.add_header(2, &line[inline_prefix.len()..].trim_start());
+                } else if !no_filesummary && line.starts_with(&filesummary_prefix) {
                     has_vexdoc = true;
                     state = ParserState::FileSummary;
                 }
             }
             ParserState::FileSummary => {
-                if line.starts_with(&format!(
-                    "endsummary{}",
-                    if single_multiline {
-                        &conf.multi_comments[0]
-                    } else {
-                        &conf.multi_comments[1]
+                if line.starts_with(&endsummary_suffix) {
+                    comment_buffer.clear();
+                    for (i, line) in included.iter().enumerate() {
+                        if i > 0 {
+                            comment_buffer.push(' ');
+                        }
+                        comment_buffer.push_str(line);
                     }
-                )) {
                     body.add_html(
                         HtmlElement::new(HtmlTag::ParagraphText)
                             .with_attribute("class", "comment")
-                            .with_child(included.join(" ").into()),
+                            .with_child(comment_buffer.clone().into()),
                     );
                     included.clear();
                     state = ParserState::Ignore;
@@ -213,8 +313,8 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
                 }
             }
             ParserState::Title => {
-                if line.starts_with(&format!("{}startsummary", conf.multi_comments[0])) {
-                    //will fail if no multiline comments are present
+                let startsummary_prefix = format!("{}startsummary", conf.multi_comments[0]);
+                if line.starts_with(&startsummary_prefix) {
                     state = ParserState::ItemSummary;
                 } else {
                     return Err(SubcommandError::UserError {
@@ -226,19 +326,18 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
                 }
             }
             ParserState::ItemSummary => {
-                if line.starts_with(&format!(
-                    "endsummary{}",
-                    if single_multiline {
-                        &conf.multi_comments[0]
-                    } else {
-                        &conf.multi_comments[1]
+                if line.starts_with(&endsummary_suffix) {
+                    comment_buffer.clear();
+                    for (i, line) in included.iter().enumerate() {
+                        if i > 0 {
+                            comment_buffer.push(' ');
+                        }
+                        comment_buffer.push_str(line);
                     }
-                )) {
-                    // TODO: figure out a better way to test syntax of the annotations
                     body.add_html(
                         HtmlElement::new(HtmlTag::ParagraphText)
                             .with_attribute("class", "comment")
-                            .with_child(included.join(" ").into()),
+                            .with_child(comment_buffer.clone().into()),
                     );
                     included.clear();
                     state = ParserState::Code;
@@ -247,12 +346,16 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
                 }
             }
             ParserState::Code => {
-                if line
-                    .replace(" ", "")
-                    .starts_with(&format!("{}ENDVEXDOC", conf.inline_comments))
-                {
+                if line.replace(" ", "").starts_with(&endvexdoc) {
+                    code_buffer.clear();
+                    for (i, line) in included.iter().enumerate() {
+                        if i > 0 {
+                            code_buffer.push('\n');
+                        }
+                        code_buffer.push_str(line);
+                    }
                     body.add_html(HtmlElement::new(HtmlTag::PreformattedText).with_html(
-                        HtmlElement::new(HtmlTag::CodeText).with_child(included.join("\n").into()),
+                        HtmlElement::new(HtmlTag::CodeText).with_child(code_buffer.clone().into()),
                     ));
                     included.clear();
                     state = ParserState::Ignore;
@@ -266,17 +369,17 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
     // This should never fail
     // TODO: Ensure this never fails
 
-    fs::write(
-        Path::new("./docs")
-            .join(
-                old_path
-                    .display()
-                    .to_string()
-                    .replace(".", "-")
-                    .replace("/", "_")
-                    .replace("\\", "_"),
-            )
-            .with_extension("html"),
+            fs::write(
+                docs_dir
+                    .join(
+                        old_path
+                            .display()
+                            .to_string()
+                            .replace(".", "-")
+                            .replace("/", "_")
+                            .replace("\\", "_"),
+                    )
+                    .with_extension("html"),
         doc_boilerplate_memo(&old_path)
             .with_container(body)
             .with_script_literal(r#"hljs.highlightAll();"#)
@@ -287,8 +390,12 @@ fn create_doc(old_path: &Path, conf: &DocGenConfig) -> Result<bool, SubcommandEr
 }
 
 fn doc_boilerplate_memo(path: &impl Deref<Target = Path>) -> HtmlPage {
+    let filename = path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown");
+    
     HtmlPage::new()
-        .with_title(format!("Docs from {}", path.display()))
+        .with_title(format!("{} - VexDoc", filename))
         .with_style(include_str!("styles.css"))
         .with_stylesheet(
             "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css",
@@ -296,6 +403,8 @@ fn doc_boilerplate_memo(path: &impl Deref<Target = Path>) -> HtmlPage {
         .with_script_link(
             "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js",
         )
+        .with_meta([("name", "viewport"), ("content", "width=device-width, initial-scale=1.0")])
+        .with_meta([("name", "description"), ("content", &format!("Documentation for {}", filename))])
 }
 
 // fn clean_up() {

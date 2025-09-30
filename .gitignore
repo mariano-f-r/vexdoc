@@ -1,3 +1,34 @@
-VexDoc.toml
-target/
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated documentation
 docs/
+*.html
+
+# Test files (keep examples but ignore generated docs)
+examples/test_files/docs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib

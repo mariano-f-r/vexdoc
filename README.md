@@ -87,4 +87,4 @@ def bar():
 ```
 
 You can repeat this as many times as you want per file for as many files as needed.
-Once you are done, simply rerun the script, and documentation will be generated in the `docs/` folder.
+Once you are done, simply rerun the script, and documentation will be generated in the `docs/` folder

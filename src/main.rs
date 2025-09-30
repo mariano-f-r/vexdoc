@@ -1,13 +1,20 @@
+//! VexDoc - The main entry point
+/*startsummary
+The main entry point for the VexDoc documentation generator.
+endsummary*/
+
 use std::error::Error;
 use std::io;
 use std::process;
 
 use vexdoc::{cli::VexDocArgs, errors::SubcommandError, run};
 
+/// Main function - parses args and runs the appropriate subcommand
 fn main() {
     let args: VexDocArgs = argh::from_env();
     let mut exit_code = 0;
     // we only care about Err values because the actual results are all side effects
+    
     if let Err(err) = run(args) {
         exit_code = 1;
         dbg!(err.source());
